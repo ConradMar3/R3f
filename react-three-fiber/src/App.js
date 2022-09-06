@@ -15,7 +15,7 @@ const particles = Array.from({length: 150}, () => ({
 export default function App() {
     return (
         <Canvas shadows dpr={[1, 2]} gl={{antialias: false}}
-                camera={{fov: 85, position: [0, 0, 60], near: 10, far: 150}}>
+                camera={{fov: 95, position: [0, 0, 60], near: 10, far: 150}}>
             <color attach="background" args={['#d5a7a7']}/>
             <fog attach="fog" args={['white', 60, 110]}/>
             <ambientLight intensity={2.5}/>
