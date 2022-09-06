@@ -1,45 +1,69 @@
-import {useRef, useState} from 'react'
+import {MathUtils} from 'three'
+import {Suspense, useRef} from 'react'
 import {Canvas, useFrame} from '@react-three/fiber'
+import {ContactShadows, Environment, Instance, Instances} from '@react-three/drei'
+import {EffectComposer, SSAO} from '@react-three/postprocessing'
 
-function Box(props) {
-    // This reference gives us direct access to the THREE.Mesh object
-    const ref = useRef()
-    // Hold state for hovered and clicked events
-    const [hovered, hover] = useState(false)
-    const [clicked, click] = useState(false)
-    // Subscribe this component to the render-loop, rotate the mesh every frame
-    useFrame((state, delta) => (ref.current.rotation.x += 0.01))
-    // Return the view, these are regular Threejs elements expressed in JSX
-    return (
-        <mesh
-            {...props}
-            ref={ref}
-            scale={clicked ? 1.5 : 1}
-            onClick={(event) => click(!clicked)}
-            onPointerOver={(event) => hover(true)}
-            onPointerOut={(event) => hover(false)}>
-            <boxGeometry args={[1, 1, 1]}/>
-            <meshStandardMaterial color={hovered ? 'crimson' : 'orange'}/>
-        </mesh>
-    )
-}
+const particles = Array.from({length: 150}, () => ({
+    factor: MathUtils.randInt(20, 100),
+    speed: MathUtils.randFloat(0.01, 1),
+    xFactor: MathUtils.randFloatSpread(80),
+    yFactor: MathUtils.randFloatSpread(40),
+    zFactor: MathUtils.randFloatSpread(40)
+}))
 
 export default function App() {
     return (
-        <Canvas>
-            <ambientLight intensity={0.15}/>
-            <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1}/>
-            <pointLight position={[-10, -10, -10]}/>
-            <Box position={[-3, 0, 0]}/>
-            <Box position={[1, 0, 0]}/>
-            <Box position={[-6, 0, 0]}/>
-            <Box position={[4, 0, 0]}/>
-
-            <Box position={[-3, 2, 0]}/>
-            <Box position={[1, 2, 0]}/>
-            <Box position={[-6, 2, 0]}/>
-            <Box position={[4, 2, 0]}/>
-
+        <Canvas shadows dpr={[1, 2]} gl={{antialias: false}}
+                camera={{fov: 85, position: [0, 0, 60], near: 10, far: 150}}>
+            <color attach="background" args={['#d5a7a7']}/>
+            <fog attach="fog" args={['white', 60, 110]}/>
+            <ambientLight intensity={2.5}/>
+            <pointLight position={[100, 10, -50]} intensity={20} castShadow/>
+            <pointLight position={[-100, -100, -100]} intensity={10} color="red"/>
+            <Bubbles/>
+            <ContactShadows position={[0, -30, 0]} opacity={0.6} scale={130} blur={1} far={40}/>
+            <EffectComposer multisampling={0}>
+                <SSAO samples={31} radius={0.1} intensity={30} luminanceInfluence={0.1} color="red"/>
+            </EffectComposer>
+            <Suspense fallback={null}>
+                <Environment preset="city"/>
+            </Suspense>
         </Canvas>
     )
+}
+
+function Bubbles() {
+    const ref = useRef()
+    useFrame((state, delta) =>
+        void (ref.current.rotation.y = MathUtils.damp(ref.current.rotation.y,
+                (-state.mouse.x * Math.PI) / 6, 2.75, delta)
+        )
+    )
+
+    return (
+        <Instances limit={particles.length} ref={ref} castShadow receiveShadow position={[0, 10, 0]}>
+            <sphereGeometry args={[1, 32, 32]}/>
+            <meshStandardMaterial roughness={0} color="#0f0f2a"/>
+            {particles.map((data, i) => (
+                    <Bubble key={i} {...data} />
+                )
+            )
+            }
+        </Instances>
+    )
+}
+
+function Bubble({factor, speed, xFactor, yFactor, zFactor}) {
+    const ref = useRef()
+    useFrame((state) => {
+        const t = factor + state.clock.elapsedTime * (speed / 2)
+        ref.current.scale.setScalar(Math.max(1.5, Math.cos(t) * 5))
+        ref.current.position.set(
+            Math.cos(t) + Math.sin(t * 1) / 10 + xFactor + Math.cos((t / 10) * factor) + (Math.sin(t * 1) * factor) / 10,
+            Math.sin(t) + Math.cos(t * 2) / 10 + yFactor + Math.sin((t / 10) * factor) + (Math.cos(t * 2) * factor) / 10,
+            Math.sin(t) + Math.cos(t * 2) / 10 + zFactor + Math.cos((t / 10) * factor) + (Math.sin(t * 3) * factor) / 10
+        )
+    })
+    return <Instance ref={ref}/>
 }
